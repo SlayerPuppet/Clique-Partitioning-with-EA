@@ -1,19 +1,29 @@
 import networkx as nx
-import numpy as np
-import random
-from scipy.optimize import linprog
 
 def load_benchmark_graph(filepath):
     """
-    Dummy loader for CP-lib or SPPA datasets.
+    Parses standard edge-list files from CP-lib or SPPA.
+    Expects format: node1 node2 cost
     """
     G = nx.Graph()
-    # Simulated parsing: Node 1, Node 2, Weight (Cost)
-    # Negative cost = similar (want to be together)
-    # Positive cost = dissimilar (want to be apart)
-    sample_edges = [
-        (1, 2, -5.0), (1, 3, 2.0), (2, 3, -1.0),
-        (3, 4, -8.0), (1, 4, 10.0), (2, 4, 3.0)
-    ]
-    G.add_weighted_edges_from(sample_edges, weight='cost')
+    print(f"Loading graph from: {filepath}")
+    
+    with open(filepath, 'r') as f:
+        for line in f:
+            line = line.strip()
+            # Skip empty lines or comment headers
+            if not line or line.startswith('#') or line.startswith('c') or line.startswith('p'):
+                continue
+            
+            parts = line.split()
+            if len(parts) >= 3:
+                try:
+                    u = int(parts[0])
+                    v = int(parts[1])
+                    cost = float(parts[2])
+                    G.add_edge(u, v, cost=cost)
+                except ValueError:
+                    continue 
+
+    print(f"Successfully loaded {G.number_of_nodes()} nodes and {G.number_of_edges()} edges.")
     return G

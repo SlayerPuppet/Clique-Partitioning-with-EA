@@ -1,3 +1,6 @@
+import random
+from src.heuristics import gaec
+
 class CliquePartitioningEA:
     def __init__(self, G, pop_size=10, generations=50):
         self.G = G
@@ -62,16 +65,3 @@ class CliquePartitioningEA:
             
         best_cost, best_partition = min([(self.calculate_cost(p), p) for p in population], key=lambda x: x[0])
         return best_partition, best_cost
-
-# --- Execution ---
-G = load_benchmark_graph("path/to/dataset")
-
-# 1. Get Lower Bound via Simplex
-lb = simplex_lower_bound(G)
-print(f"Simplex Lower Bound: {lb}")
-
-# 2. Run EA
-ea = CliquePartitioningEA(G)
-best_partition, best_cost = ea.optimize()
-print(f"EA Best Cost: {best_cost}")
-print(f"Clusters: {best_partition}")

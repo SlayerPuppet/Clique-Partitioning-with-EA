@@ -1,3 +1,5 @@
+from scipy.optimize import linprog
+
 def simplex_lower_bound(G):
     """
     Computes a lower bound using LP relaxation with Simplex.
