@@ -1,50 +1,39 @@
 import sys
+import os
 from src.data_loader import load_benchmark_graph
-from src.heuristics import gaec
-from src.bounds import simplex_lower_bound
-from src.evolutionary import CliquePartitioningEA
+from src.advanced_solver import AdvancedSolver
 
 def run_experiment(filepath):
-    print("\n--- Starting Clique Partitioning Pipeline ---")
+    print("\n" + "="*50)
+    print("   Advanced Clique Partitioning Pipeline")
+    print("="*50)
     
-    # 1. Load the real data
-    G = load_benchmark_graph(filepath)
-    node_count = G.number_of_nodes()
-
-    if node_count == 0:
-        print("Error: Graph is empty. Check your dataset file.")
+    # 1. Verify file exists
+    if not os.path.exists(filepath):
+        print(f"Error: Could not find dataset at '{filepath}'")
         return
 
-    # 2. Safety Check for Simplex (O(N^3) constraint explosion)
-    if node_count <= 20:
-        print("\n[Phase 1] Computing Simplex Lower Bound...")
-        lb = simplex_lower_bound(G)
-        print(f"-> Theoretical Minimum Cost: {lb}")
-    else:
-        print(f"\n[Phase 1] Skipping Simplex Lower Bound (Graph too large: {node_count} nodes).")
-        print("-> Implement lazy constraint generation (cutting planes) to evaluate bounds on this graph.")
+    # 2. Load the benchmark graph
+    G = load_benchmark_graph(filepath)
+    if G.number_of_nodes() == 0:
+        print("Error: Graph is empty. Check your dataset parser.")
+        return
 
-    # 3. Baseline Heuristic
-    print("\n[Phase 2] Running GAEC Baseline...")
-    ea_temp = CliquePartitioningEA(G) # Instantiate just to use the cost calculator
-    baseline_partition = gaec(G)
-    baseline_cost = ea_temp.calculate_cost(baseline_partition)
-    print(f"-> GAEC Cost: {baseline_cost}")
+    # 3. Initialize and run the Advanced Solver
+    solver = AdvancedSolver(G)
+    final_partition, UB, LB, gap = solver.run_pipeline()
 
-    # 4. Evolutionary Algorithm
-    print("\n[Phase 3] Running Evolutionary Algorithm...")
-    ea = CliquePartitioningEA(G, pop_size=20, generations=100)
-    best_partition, best_cost = ea.optimize()
-    print(f"-> EA Best Cost: {best_cost}")
-    print(f"-> Improvement over baseline: {baseline_cost - best_cost}")
-    
-    print("\n--- Pipeline Complete ---")
+    # 4. Display Final Metrics
+    print("\n" + "="*50)
+    print("                 FINAL RESULTS")
+    print("="*50)
+    print(f"Optimal Lower Bound (LB):   {LB}")
+    print(f"Heuristic Upper Bound (UB): {UB}")
+    print(f"Optimality Gap:             {gap:.4f}")
+    print(f"Total Clusters Formed:      {len(final_partition)}")
+    print("="*50 + "\n")
 
 if __name__ == "__main__":
-    # Allow passing the dataset path via command line
-    if len(sys.argv) < 2:
-        print("Usage: python main.py <path_to_dataset>")
-        sys.exit(1)
-        
-    target_file = sys.argv[1]
+    # Default to the sample data if no terminal argument is provided
+    target_file = sys.argv[1] if len(sys.argv) > 1 else "data/sample_data.txt"
     run_experiment(target_file)

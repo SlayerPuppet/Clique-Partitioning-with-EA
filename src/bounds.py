@@ -1,4 +1,5 @@
 from scipy.optimize import linprog
+import networkx as nx
 
 def simplex_lower_bound(G):
     """
@@ -38,3 +39,40 @@ def simplex_lower_bound(G):
     # Use Highs-DS (Dual Simplex) via SciPy
     res = linprog(c, A_ub=A_ub, b_ub=b_ub, bounds=(0, 1), method='highs-ds')
     return res.fun if res.success else None
+
+
+# --- Contribution 2: Iterative Cycle Packing (ICP) ---
+def iterative_cycle_packing(reduced_G):
+    """Computes the lower bound using greedy cycle packing."""
+    G_plus = nx.Graph()
+    G_plus.add_nodes_from(reduced_G.nodes())
+    G_plus.add_edges_from([(u, v) for u, v, d in reduced_G.edges(data=True) if d['c_paper'] > 0])
+
+    L_triv = sum(d['c_paper'] for u, v, d in reduced_G.edges(data=True) if d['c_paper'] < 0)
+    
+    cycles = []
+    # Find conflicted cycles (repulsive edge closing an attractive path)
+    for u, v, d in reduced_G.edges(data=True):
+        if d['c_paper'] < 0:
+            if nx.has_path(G_plus, u, v):
+                path = nx.shortest_path(G_plus, source=u, target=v)
+                cycle_edges = [tuple(sorted((u, v)))]
+                for i in range(len(path) - 1):
+                    cycle_edges.append(tuple(sorted((path[i], path[i+1]))))
+                cycles.append(cycle_edges)
+
+    # Sort by cycle length (shorter cycles packed first)
+    cycles.sort(key=len)
+
+    residuals = {tuple(sorted((u, v))): abs(d['c_paper']) for u, v, d in reduced_G.edges(data=True)}
+    L_dual = 0
+
+    # Greedy packing
+    for cycle in cycles:
+        y_C = min(residuals[e] for e in cycle)
+        if y_C > 0:
+            for e in cycle:
+                residuals[e] -= y_C
+            L_dual += y_C
+
+    return L_triv + L_dual, residuals
