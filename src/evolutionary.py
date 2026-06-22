@@ -1,11 +1,20 @@
 import random
 from src.heuristics import klj_local_search
+from src.reductions import apply_partial_optimality
+from src.bounds import iterative_cycle_packing
 
 class MemeticAlgorithm:
-    def __init__(self, original_G, pop_size=10, generations=50):
-        self.G = original_G
+    def __init__(self, original_G, pop_size=10, generations=30):
+        self.original_G = original_G
+        # Create a working copy for partial bound calculations
+        self.G = original_G.copy()
+        for u, v, d in self.G.edges(data=True):
+            if 'c_paper' not in d:
+                d['c_paper'] = -d['cost']
+                
         self.pop_size = pop_size
         self.generations = generations
+        self.best_UB = float('inf')
 
     def calculate_cost(self, partition):
         cost = 0
@@ -13,107 +22,133 @@ class MemeticAlgorithm:
             nodes = list(cluster)
             for i in range(len(nodes)):
                 for j in range(i + 1, len(nodes)):
-                    if self.G.has_edge(nodes[i], nodes[j]):
-                        cost += self.G[nodes[i]][nodes[j]]['cost']
+                    if self.original_G.has_edge(nodes[i], nodes[j]):
+                        cost += self.original_G[nodes[i]][nodes[j]]['cost']
         return cost
 
+    def get_partial_lb(self, fixed_partition):
+            """Calculates the lower bound of a partially assigned graph."""
+            H = self.G.copy()
+            
+            # 1. Accurately calculate the cost of the fixed clusters (Fix for missed internal edges)
+            fixed_cost = 0
+            for cluster in fixed_partition:
+                nodes = list(cluster)
+                for i in range(len(nodes)):
+                    for j in range(i + 1, len(nodes)):
+                        if self.original_G.has_edge(nodes[i], nodes[j]):
+                            fixed_cost += self.original_G[nodes[i]][nodes[j]]['cost']
+            
+            # 2. Fix variables by contracting nodes that are grouped together
+            for cluster in fixed_partition:
+                if len(cluster) < 2: continue
+                nodes = list(cluster)
+                u = nodes[0]
+                for v in nodes[1:]:
+                    if H.has_node(v):
+                        for neighbor in list(H.neighbors(v)):
+                            if neighbor != u:
+                                if H.has_edge(u, neighbor):
+                                    H[u][neighbor]['cost'] += H[v][neighbor]['cost']
+                                    H[u][neighbor]['c_paper'] += H[v][neighbor]['c_paper']
+                                else:
+                                    H.add_edge(u, neighbor, cost=H[v][neighbor]['cost'], c_paper=H[v][neighbor]['c_paper'])
+                        H.remove_node(v)
+            
+            # 3. Apply Partial Optimality to the fixed graph
+            reduced_H = apply_partial_optimality(H)
+            if reduced_H.number_of_edges() == 0:
+                return fixed_cost
+                
+            paper_lb, _ = iterative_cycle_packing(reduced_H)
+            sum_reduced = sum(d['cost'] for u,v,d in reduced_H.edges(data=True))
+            return fixed_cost + sum_reduced + paper_lb
+
     def initialize_population(self, seed_partition):
-        """
-        Seeds the population with the highly optimized KLj result,
-        plus random valid partitions.
-        """
         population = [seed_partition]
-        nodes = list(self.G.nodes())
+        nodes = list(self.original_G.nodes())
         
-        for _ in range(self.pop_size - 1):
+        while len(population) < self.pop_size:
             random.shuffle(nodes)
             split_idx = random.randint(1, len(nodes) - 1)
             random_partition = [{n} for n in nodes[:split_idx]] + [set(nodes[split_idx:])]
-            # Refine the random guess using local search before it enters the gene pool
-            refined_partition, _ = klj_local_search(self.G, random_partition)
+            refined_partition, cost = klj_local_search(self.original_G, random_partition)
+            if cost < self.best_UB:
+                self.best_UB = cost
             population.append(refined_partition)
             
         return population
 
     def mutate_and_refine(self, partition):
-        """
-        The Memetic step: Mutate to jump out of a local minimum, 
-        then use KLj to slide into a new one.
-        """
         new_partition = [set(c) for c in partition]
-        if len(new_partition) < 2: 
-            return new_partition
+        if len(new_partition) < 2: return new_partition
         
-        # 1. Mutate: Randomly shift a node
-        source_idx = random.randint(0, len(new_partition) - 1)
-        if not new_partition[source_idx]: 
-            return new_partition
+        num_nodes_to_move = max(3, int(self.original_G.number_of_nodes() * 0.10))
+        unassigned = set()
+        
+        # 1. KICK: Unassign a few nodes
+        for _ in range(num_nodes_to_move):
+            valid_sources = [i for i, c in enumerate(new_partition) if c]
+            if not valid_sources: break
+            source_idx = random.choice(valid_sources)
+            node = random.choice(list(new_partition[source_idx]))
+            new_partition[source_idx].remove(node)
+            unassigned.add(node)
             
-        node = new_partition[source_idx].pop()
-        target_idx = random.choice([i for i in range(len(new_partition)) if i != source_idx])
-        new_partition[target_idx].add(node)
+        new_partition = [c for c in new_partition if c]
+        
+        # 2. PRUNE: Find new lower bound. If higher (worse) than best UB, discard!
+        partial_lb = self.get_partial_lb(new_partition)
+        if partial_lb >= self.best_UB:
+            return None # Discard this pool instantly
+            
+        # 3. REASSIGN randomly if it passed the bounding check
+        for node in unassigned:
+            target_indices = [i for i in range(len(new_partition))] + [-1]
+            target_idx = random.choice(target_indices)
+            if target_idx == -1:
+                new_partition.append({node})
+            else:
+                new_partition[target_idx].add(node)
         
         mutated_partition = [c for c in new_partition if c]
         
-        # 2. Refine: Apply KLj to the mutation
-        refined_partition, _ = klj_local_search(self.G, mutated_partition)
+        # 4. REFINE with KLj
+        refined_partition, refined_cost = klj_local_search(self.original_G, mutated_partition)
+        if refined_cost < self.best_UB:
+            self.best_UB = refined_cost
+            
         return refined_partition
 
     def optimize(self, seed_partition):
         print("   -> Initializing Memetic Population...")
+        self.best_UB = self.calculate_cost(seed_partition)
         population = self.initialize_population(seed_partition)
         
         for gen in range(self.generations):
             scored_pop = [(self.calculate_cost(p), p) for p in population]
             scored_pop.sort(key=lambda x: x[0])
             
-            # Elitism: Keep top 50%
             survivors = [p for cost, p in scored_pop[:self.pop_size // 2]]
-            
-            # Generate offspring
             next_gen = list(survivors)
-            while len(next_gen) < self.pop_size:
+            
+            pruned_count = 0
+            while len(next_gen) < self.pop_size and pruned_count < 50:
                 parent = random.choice(survivors)
-                next_gen.append(self.mutate_and_refine(parent))
+                offspring = self.mutate_and_refine(parent)
                 
+                if offspring is not None:
+                    next_gen.append(offspring)
+                else:
+                    pruned_count += 1 # The LB check saved us from running KLj!
+                
+            while len(next_gen) < self.pop_size:
+                 next_gen.append(random.choice(survivors))
+
             population = next_gen
             
             if gen % 10 == 0:
-                print(f"   -> Generation {gen} Best Cost: {scored_pop[0][0]}")
+                print(f"   -> Generation {gen} Best Cost: {self.best_UB} (Bad mutations pruned: {pruned_count})")
             
         best_cost, best_partition = min([(self.calculate_cost(p), p) for p in population], key=lambda x: x[0])
         return best_partition, best_cost
-    
-    def run_pipeline(self):
-        print("\n[Phase 1] Partial Optimality Preprocessing...")
-        reduced_G = self.partial_optimality()
-        print(f"-> Reduced Graph: {reduced_G.number_of_nodes()} nodes")
-        
-        if reduced_G.number_of_edges() == 0:
-            return None, 0, 0, 0
-
-        print("\n[Phase 2] Iterative Cycle Packing (ICP)...")
-        paper_lb, residuals = self.iterative_cycle_packing(reduced_G)
-        LB = -paper_lb 
-        print(f"-> ICP Lower Bound: {LB}")
-        
-        print("\n[Phase 3] Reweighting and GAEC...")
-        gaec_partition = self.reweight_and_gaec(reduced_G, residuals)
-        gaec_cost = self._calculate_original_cost(gaec_partition)
-        print(f"-> Reweighted GAEC Cost: {gaec_cost}")
-        
-        print("\n[Phase 4] Kernighan-Lin with Joins (KLj)...")
-        klj_partition, klj_cost = self.klj_local_search(gaec_partition)
-        print(f"-> Final Primal Cost (KLj Upper Bound): {klj_cost}")
-
-        print("\n[Phase 5] Memetic Evolutionary Search...")
-        # Pass the original graph to the EA so it evaluates true costs
-        ea = MemeticAlgorithm(self.original_G, pop_size=10, generations=30)
-        final_partition, final_cost = ea.optimize(seed_partition=klj_partition)
-        print(f"-> Memetic Final Cost: {final_cost}")
-        
-        # Calculate final gap based on the EA's best result
-        UB = final_cost
-        gap = (UB - LB) / abs(UB) if UB != 0 else 0
-        
-        return final_partition, UB, LB, gap

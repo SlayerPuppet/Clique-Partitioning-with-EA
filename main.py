@@ -24,14 +24,15 @@ def run_experiment(filepath):
     final_partition, UB, LB, gap = solver.run_pipeline()
 
     # 4. Display Final Metrics
-    print("\n" + "="*50)
-    print("                 FINAL RESULTS")
-    print("="*50)
-    print(f"Optimal Lower Bound (LB):   {LB}")
-    print(f"Heuristic Upper Bound (UB): {UB}")
-    print(f"Optimality Gap:             {gap:.4f}")
-    print(f"Total Clusters Formed:      {len(final_partition)}")
-    print("="*50 + "\n")
+    if final_partition is not None:
+        print("\n" + "="*50)
+        print("                 FINAL RESULTS")
+        print("="*50)
+        print(f"Theoretical Lower Bound (LB): {LB}")
+        print(f"Heuristic Upper Bound (UB):   {UB}")
+        print(f"Optimality Gap:               {gap:.4f}")
+        print(f"Total Clusters Formed:        {len(final_partition)}")
+        print("="*50 + "\n")
 
 if __name__ == "__main__":
     # Default to the sample data if no terminal argument is provided
