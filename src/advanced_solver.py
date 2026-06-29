@@ -37,6 +37,11 @@ class AdvancedSolver:
         klj_partition, klj_cost = klj_local_search(self.original_G, gaec_partition)
         print(f"-> Final Primal Cost (KLj Upper Bound): {klj_cost}")
 
+        # --- THE EARLY TERMINATION CHECK ---
+        if klj_cost == LB:
+            print("\n[Phase 5] Skipped! (Global Optimum mathematically proven by LB)")
+            return klj_partition, klj_cost, LB, 0.0
+
         print("\n[Phase 5] Memetic Evolutionary Search with LB Pruning...")
         ea = MemeticAlgorithm(self.original_G, pop_size=10, generations=30)
         
