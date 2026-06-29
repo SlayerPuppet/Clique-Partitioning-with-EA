@@ -135,13 +135,15 @@ class MemeticAlgorithm:
         self.best_UB = self.calculate_cost(seed_partition)
         population = self.initialize_population(seed_partition)
         
+        # Start tracking history with Generation 0
+        history = [self.best_UB]
+        
         for gen in range(self.generations):
             scored_pop = [(self.calculate_cost(p), p) for p in population]
             scored_pop.sort(key=lambda x: x[0])
             
             current_gen_best = scored_pop[0][0]
             
-            # Adaptive Logic: Heat up or Cool down
             if current_gen_best < self.best_UB:
                 self.best_UB = current_gen_best
                 self.stagnation = 0
@@ -172,8 +174,13 @@ class MemeticAlgorithm:
 
             population = next_gen
             
+            # Record the best score at the end of this generation
+            history.append(self.best_UB)
+            
             if gen % 10 == 0:
                 print(f"   -> Generation {gen} Best Cost: {self.best_UB} (Kick: {int(self.kick_pct*100)}%, Pruned: {pruned_count})")
             
         best_cost, best_partition = min([(self.calculate_cost(p), p) for p in population], key=lambda x: x[0])
-        return best_partition, best_cost
+        
+        # Return the history array along with the results
+        return best_partition, best_cost, history

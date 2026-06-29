@@ -39,11 +39,13 @@ class AdvancedSolver:
 
         print("\n[Phase 5] Memetic Evolutionary Search with LB Pruning...")
         ea = MemeticAlgorithm(self.original_G, pop_size=10, generations=30)
-        final_partition, final_cost = ea.optimize(seed_partition=klj_partition)
+        
+        # Catch the history array here
+        final_partition, final_cost, history = ea.optimize(seed_partition=klj_partition)
         print(f"-> Memetic Final Cost: {final_cost}")
         
-        # Calculate final standard relative gap
         UB = final_cost
         gap = abs(UB - LB) / abs(LB) if LB != 0 else 0.0
         
-        return final_partition, UB, LB, gap
+        # Return history to main.py
+        return final_partition, UB, LB, gap, history
