@@ -45,7 +45,7 @@ def run_batch_experiments(target_folders, output_csv="batch_results.csv"):
 
                     # Run the pipeline
                     solver = AdvancedSolver(G)
-                    final_partition, UB, LB, gap = solver.run_pipeline()
+                    final_partition, UB, LB, gap = solver.run_pipeline(filename=filename)
 
                     # Calculate metrics
                     exec_time = round(time.time() - start_time, 2)

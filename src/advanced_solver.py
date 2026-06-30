@@ -4,6 +4,18 @@ from src.bounds import iterative_cycle_packing
 from src.heuristics import reweight_and_gaec, klj_local_search, calculate_original_cost
 from src.evolutionary import MemeticAlgorithm
 
+# --- THE LOOKUP TABLE ---
+# Populate this with known optimums from the CP-Lib and SPPA papers.
+KNOWN_OPTIMUMS = {
+    "corr40-10.txt": -2161.0,
+    "am-25-20.txt": -1460925.0, 
+    "am-25-10.txt": -1011425.0,
+    "CPn35-3.txt": -1247118.0,
+    "CPn50-4.txt": -2279771.0,
+    "CPn65-1.txt": -3955077.0
+    # Add more when find them in the academic papers!
+}
+
 class AdvancedSolver:
     def __init__(self, original_G):
         self.original_G = original_G
@@ -12,7 +24,7 @@ class AdvancedSolver:
         for u, v, d in self.G.edges(data=True):
             d['c_paper'] = -d['cost']
 
-    def run_pipeline(self):
+    def run_pipeline(self, filename=None):
         print("\n[Phase 1] Partial Optimality Preprocessing...")
         reduced_G = apply_partial_optimality(self.G)
         print(f"-> Reduced Graph: {reduced_G.number_of_nodes()} nodes")
@@ -50,7 +62,27 @@ class AdvancedSolver:
         print(f"-> Memetic Final Cost: {final_cost}")
         
         UB = final_cost
-        gap = abs(UB - LB) / abs(LB) if LB != 0 else 0.0
+        # gap = abs(UB - LB) / abs(LB) if LB != 0 else 0.0
         
-        # Return history to main.py
+        # # Return history to main.py
+        # return final_partition, UB, LB, gap, history
+        
+        # --- NEW: Automated Optimum Lookup ---
+        known_optimum = None
+        if filename and filename in KNOWN_OPTIMUMS:
+            known_optimum = KNOWN_OPTIMUMS[filename]
+            print(f"\n-> Note: Using literature known optimum ({known_optimum}) for gap calculation.")
+        else:
+            print("\n-> Note: Optimum unknown. Falling back to ICP Lower Bound for gap calculation.")
+        
+        # Formula: (c(x) - c(x*)) / |c(x*)|
+        c_x_star = known_optimum if known_optimum is not None else LB
+        
+        if c_x_star != 0:
+            gap = (UB - c_x_star) / abs(c_x_star)
+        else:
+            gap = 0.0
+            
+        gap = max(0.0, gap)
+        
         return final_partition, UB, LB, gap, history

@@ -65,16 +65,33 @@ class MemeticAlgorithm:
 
     def initialize_population(self, seed_partition):
         population = [seed_partition]
-        nodes = list(self.original_G.nodes())
+        print("      -> Generating diverse starting pool from seed...")
         
+        attempts = 0
+        # Try to generate unique offspring to fill the population
+        while len(population) < self.pop_size and attempts < self.pop_size * 5:
+            attempts += 1
+            
+            # Temporarily force a large 20% kick to ensure initial diversity
+            original_kick = self.kick_pct
+            self.kick_pct = 0.20 
+            
+            result = self.mutate_and_refine(seed_partition)
+            
+            # Restore the adaptive kick percentage
+            self.kick_pct = original_kick
+            
+            if result is not None:
+                offspring, cost = result
+                population.append(offspring)
+                if cost < self.best_UB:
+                    self.best_UB = cost
+                    
+        # Fallback: If the bounding pruner is too aggressive and we can't find 
+        # enough good mutations, pad the rest of the pool with clones of the seed 
+        # so the evolutionary loop can begin.
         while len(population) < self.pop_size:
-            random.shuffle(nodes)
-            split_idx = random.randint(1, len(nodes) - 1)
-            random_partition = [{n} for n in nodes[:split_idx]] + [set(nodes[split_idx:])]
-            refined_partition, cost = klj_local_search(self.original_G, random_partition)
-            if cost < self.best_UB:
-                self.best_UB = cost
-            population.append(refined_partition)
+            population.append(seed_partition)
             
         return population
 

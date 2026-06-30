@@ -19,9 +19,15 @@ def run_experiment(filepath):
         return
 
     solver = AdvancedSolver(G)
+
+    # Extract the actual filename (e.g., 'corr40-10.txt') from the path
+    filename = os.path.basename(filepath)
     
-    # Unpack the history variable
-    final_partition, UB, LB, gap, history = solver.run_pipeline()
+    # Pass it to the pipeline
+    final_partition, UB, LB, gap, history = solver.run_pipeline(filename=filename)
+    
+    # # Unpack the history variable
+    # final_partition, UB, LB, gap, history = solver.run_pipeline()
 
     if final_partition is not None:
         print("\n" + "="*50)
