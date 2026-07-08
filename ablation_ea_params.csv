@@ -1,0 +1,7 @@
+instance,family,crossover_rate,max_kick,mean_gap_pct,best_gap_pct,mean_time_s
+corr40-10,Correlation,0.0,0.2,0.13,0.13,0.32
+corr40-10,Correlation,0.0,0.4,0.13,0.13,0.32
+corr40-10,Correlation,0.3,0.2,0.13,0.13,0.32
+corr40-10,Correlation,0.3,0.4,0.13,0.13,0.35
+corr40-10,Correlation,0.6,0.2,0.13,0.13,0.33
+corr40-10,Correlation,0.6,0.4,0.13,0.13,0.37

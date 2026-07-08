@@ -95,40 +95,86 @@ def reweight_and_gaec(reduced_G, residuals, lam=0.5):
     return list(partition.values())
 
 def klj_local_search(original_G, partition):
-    """Kernighan-Lin with joins (KLj). Locally improves a partition."""
-    current_partition = [set(c) for c in partition]
+    """Kernighan-Lin with joins (KLj). Locally improves a partition.
+
+    Uses O(deg) delta evaluation per candidate move instead of recomputing
+    the full partition cost. Alternates single-node relocations (1-opt,
+    including moves to a new singleton) with cluster joins until neither
+    move type improves the cost.
+    """
+    clusters = {}
+    node_to_cid = {}
+    next_cid = 0
+    for c in partition:
+        if c:
+            clusters[next_cid] = set(c)
+            for n in c:
+                node_to_cid[n] = next_cid
+            next_cid += 1
+    # Nodes missing from the partition become singletons
+    for n in original_G.nodes():
+        if n not in node_to_cid:
+            clusters[next_cid] = {n}
+            node_to_cid[n] = next_cid
+            next_cid += 1
+
     improved = True
-    
     while improved:
         improved = False
-        current_cost = calculate_original_cost(original_G, current_partition)
-        
-        for node in list(original_G.nodes()):
-            source_idx = next(i for i, cluster in enumerate(current_partition) if node in cluster)
-            target_indices = [i for i in range(len(current_partition)) if i != source_idx] + [-1]
-            
-            best_new_partition = None
-            best_new_cost = current_cost
-            
-            for target_idx in target_indices:
-                test_partition = [set(c) for c in current_partition]
-                test_partition[source_idx].remove(node)
-                
-                if target_idx == -1: 
-                    test_partition.append({node})
-                else: 
-                    test_partition[target_idx].add(node)
-                    
-                test_partition = [c for c in test_partition if c]
-                test_cost = calculate_original_cost(original_G, test_partition)
-                
-                if test_cost < best_new_cost:
-                    best_new_cost = test_cost
-                    best_new_partition = test_partition
+
+        # Move type 1: Single-node relocation (1-opt)
+        moved = True
+        while moved:
+            moved = False
+            for node in original_G.nodes():
+                src = node_to_cid[node]
+
+                # Edge-weight sum from node to each adjacent cluster
+                conn = {}
+                for nb in original_G.neighbors(node):
+                    cid = node_to_cid[nb]
+                    conn[cid] = conn.get(cid, 0.0) + original_G[node][nb]['cost']
+
+                cost_stay = conn.get(src, 0.0)
+
+                # Best alternative: an adjacent cluster, or a new singleton (0.0)
+                best_cid, best_cost = None, 0.0
+                for cid, w in conn.items():
+                    if cid != src and w < best_cost:
+                        best_cid, best_cost = cid, w
+
+                if best_cost - cost_stay < -1e-12:
+                    clusters[src].discard(node)
+                    if not clusters[src]:
+                        del clusters[src]
+                    if best_cid is None:
+                        clusters[next_cid] = {node}
+                        node_to_cid[node] = next_cid
+                        next_cid += 1
+                    else:
+                        clusters[best_cid].add(node)
+                        node_to_cid[node] = best_cid
+                    moved = True
                     improved = True
-                    
-            if improved:
-                current_partition = best_new_partition
-                break 
-                
-    return current_partition, calculate_original_cost(original_G, current_partition)
+
+        # Move type 2: Cluster joins — merge the pair whose inter-cluster
+        # edge weight sum is most negative (attraction dominates).
+        inter = {}
+        for u, v, d in original_G.edges(data=True):
+            cu, cv = node_to_cid[u], node_to_cid[v]
+            if cu == cv:
+                continue
+            key = (cu, cv) if cu < cv else (cv, cu)
+            inter[key] = inter.get(key, 0.0) + d['cost']
+
+        if inter:
+            (ca, cb), w = min(inter.items(), key=lambda kv: kv[1])
+            if w < -1e-12:
+                clusters[ca] |= clusters[cb]
+                for n in clusters[cb]:
+                    node_to_cid[n] = ca
+                del clusters[cb]
+                improved = True
+
+    final = list(clusters.values())
+    return final, calculate_original_cost(original_G, final)

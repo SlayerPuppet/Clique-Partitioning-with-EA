@@ -1,5 +1,6 @@
 import sys
 import os
+import time
 import matplotlib.pyplot as plt
 from src.data_loader import load_benchmark_graph
 from src.advanced_solver import AdvancedSolver
@@ -22,9 +23,10 @@ def run_experiment(filepath):
 
     # Extract the actual filename (e.g., 'corr40-10.txt') from the path
     filename = os.path.basename(filepath)
-    
-    # Pass it to the pipeline
+
+    t_start = time.perf_counter()
     final_partition, UB, LB, gap, history = solver.run_pipeline(filename=filename)
+    elapsed = time.perf_counter() - t_start
     
     # # Unpack the history variable
     # final_partition, UB, LB, gap, history = solver.run_pipeline()
@@ -37,6 +39,7 @@ def run_experiment(filepath):
         print(f"Heuristic Upper Bound (UB):   {UB}")
         print(f"Optimality Gap:               {gap:.4f}")
         print(f"Total Clusters Formed:        {len(final_partition)}")
+        print(f"Total Runtime:                {elapsed:.2f}s")
         print("="*50 + "\n")
         
         # --- NEW: Plotting Logic ---
@@ -55,7 +58,7 @@ def run_experiment(filepath):
             plt.tight_layout()
             
             # Save the image to your folder
-            plot_filename = f"convergence_{dataset_name.split('.')[0]}.png"
+            plot_filename = f"convergence_{os.path.splitext(dataset_name)[0]}.png"
             plt.savefig(plot_filename)
             print(f"Plot saved successfully as '{plot_filename}'")
             

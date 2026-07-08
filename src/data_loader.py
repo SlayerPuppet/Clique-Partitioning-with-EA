@@ -51,19 +51,28 @@ def load_benchmark_graph(filepath):
         for line in clean_lines[start_idx:]:
             tokens = line.split()
             if len(tokens) >= 3:
-                u, v, cost = int(tokens[0]), int(tokens[1]), float(tokens[2])
-                G.add_edge(u, v, cost=cost)
+                u, v, weight = int(tokens[0]), int(tokens[1]), float(tokens[2])
+                # Multicut convention: minimize the cost of CUT edges, so a
+                # positive weight means attraction. Our pipeline minimizes the
+                # cost of JOINED edges, hence cost = -weight (same as CP-Lib).
+                G.add_edge(u, v, cost=-weight)
                 
     else:
         print("-> Format Detected: CP-Lib (Dense Upper-Triangular Matrix)")
+        # First line is the number of nodes, not matrix data.
+        num_nodes = int(clean_lines[0].split()[0])
+        G.add_nodes_from(range(num_nodes))
+
         node_i = 0
-        for line in clean_lines:
+        for line in clean_lines[1:]:
             tokens = line.split()
             node_j = node_i + 1
             for token in tokens:
-                cost = float(token)
-                if cost != 0: 
-                    G.add_edge(node_i, node_j, cost=cost)
+                weight = float(token)
+                if weight != 0:
+                    # CP-Lib is a MAXIMIZATION problem (maximize within-cluster
+                    # weight). Our pipeline minimizes cost, so cost = -weight.
+                    G.add_edge(node_i, node_j, cost=-weight)
                 node_j += 1
             node_i += 1
             

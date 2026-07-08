@@ -1,0 +1,17 @@
+instance,family,config,cost,optimum,gap_pct,time_s
+cpn35-3,Random,gaec_raw,-6698.0,-7633.0,12.25,0.0
+cpn35-3,Random,gaec_rw,-7122.0,-7633.0,6.69,0.02
+cpn35-3,Random,klj,-7264.0,-7633.0,4.83,0.04
+cpn35-3,Random,full,-7264.0,-7633.0,4.83,0.3
+cpn35-3,Random,no_po,-7264.0,-7633.0,4.83,0.31
+cpn35-3,Random,no_rw,-6956.0,-7633.0,8.87,0.33
+cpn35-3,Random,no_xover,-7264.0,-7633.0,4.83,0.28
+cpn35-3,Random,no_prune,-7264.0,-7633.0,4.83,0.09
+corr40-10,Correlation,gaec_raw,-2119.0,-2301.0,7.91,0.01
+corr40-10,Correlation,gaec_rw,-2275.0,-2301.0,1.13,0.02
+corr40-10,Correlation,klj,-2293.0,-2301.0,0.35,0.03
+corr40-10,Correlation,full,-2298.0,-2301.0,0.13,0.39
+corr40-10,Correlation,no_po,-2298.0,-2301.0,0.13,0.35
+corr40-10,Correlation,no_rw,-2298.0,-2301.0,0.13,0.33
+corr40-10,Correlation,no_xover,-2298.0,-2301.0,0.13,0.33
+corr40-10,Correlation,no_prune,-2298.0,-2301.0,0.13,0.15

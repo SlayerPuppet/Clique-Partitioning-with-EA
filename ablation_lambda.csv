@@ -1,0 +1,11 @@
+instance,family,lam,cost,gap_pct,time_s
+cpn35-3,Random,0.0,-6431.0,15.75,0.03
+cpn35-3,Random,0.25,-6499.0,14.86,0.02
+cpn35-3,Random,0.5,-7264.0,4.83,0.02
+cpn35-3,Random,0.75,-7170.0,6.07,0.02
+cpn35-3,Random,1.0,-6802.0,10.89,0.02
+corr40-10,Correlation,0.0,-2293.0,0.35,0.03
+corr40-10,Correlation,0.25,-2293.0,0.35,0.03
+corr40-10,Correlation,0.5,-2293.0,0.35,0.03
+corr40-10,Correlation,0.75,-2135.0,7.21,0.03
+corr40-10,Correlation,1.0,-2293.0,0.35,0.03
